@@ -1,0 +1,8 @@
+# virtual environment
+bin
+include
+lib
+pyvenv.cfg
+
+# etc
+chromedriver
