@@ -1,6 +1,9 @@
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 import urllib.request
 import os
@@ -12,7 +15,9 @@ NUM_PIC = 3
 
 # Chrome 106 version driver
 driver = webdriver.Chrome('/Users/DoyoonLee/Dev/Projects/emergency-vehicle-detection/src/chromedriver')
+wait = WebDriverWait(driver,5)
 driver.get("https://www.google.co.kr/imghp?hl=en&tab=ri&authuser=0&ogbl")
+driver.implicitly_wait(5)
 
 for keyword in emergency_vehicle_keywords:
     elem = driver.find_element(By.NAME,"q")
@@ -42,7 +47,7 @@ for keyword in emergency_vehicle_keywords:
             except:
                 break
         last_height = new_height
-    # move to the start
+    # move the window to the start
     driver.execute_script("window.scrollTo(0,0);")
 
     images = driver.find_elements(By.CSS_SELECTOR,".rg_i.Q4LuWd")
@@ -61,18 +66,21 @@ for keyword in emergency_vehicle_keywords:
     for image in images:
         try:
             image.click()
-            time.sleep(1.5)
+            # time.sleep(1.5)
+            # driver.implicitly_wait(5)
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,".n3VNCb.KAlRDb")))
             imgUrl = driver.find_element(By.CSS_SELECTOR,".n3VNCb.KAlRDb").get_attribute("src")
 
             # download the image
             urllib.request.urlretrieve(imgUrl,f"{keyword[:3]}/{keyword[:3]+str(COUNT)}.jpg")
-            print(f"{keyword[:3]}: {COUNT+1}/{NUM_PIC}")
+            print(f"{keyword[:3]}: {COUNT+1}/{len(images)}")
             COUNT+=1
 
-            if COUNT == NUM_PIC:
-                break
+            # if COUNT == NUM_PIC:
+            #     break
         except Exception as e:
             print("error: ",e)
             pass
 
+print(f"Time Finished: {datetime.now().strftime('%H-%M-%S')}")
 driver.close()
