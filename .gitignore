@@ -13,3 +13,5 @@ src/screenshots
 # etc
 Graduation Paper.docx
 chromedriver
+.DS_Store
+Src/.DS_Store
