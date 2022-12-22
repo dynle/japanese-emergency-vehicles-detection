@@ -6,6 +6,12 @@ pyvenv.cfg
 
 # data
 src/screenshots
+Src/dataset/train.txt
+Src/dataset/val.txt
+Src/dataset/labels
+Src/dataset/images
+Src/dataset/classes.txt
+Src/dataset/notes.json
 etc
 
 # etc
