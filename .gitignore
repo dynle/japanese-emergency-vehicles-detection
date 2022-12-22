@@ -5,10 +5,8 @@ lib
 pyvenv.cfg
 
 # data
-src/救急車
-src/消防車
-src/警察車
 src/screenshots
+etc
 
 # etc
 Graduation Paper.docx
