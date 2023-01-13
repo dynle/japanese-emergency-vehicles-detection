@@ -7,7 +7,12 @@ pyvenv.cfg
 # data
 src/screenshots
 src/dataset
+src/dataset-sirenlight
 etc
+
+# files
+models
+utils
 
 # etc
 Graduation Paper.docx
