@@ -70,6 +70,12 @@ def detect(save_img=False):
     old_img_w = old_img_h = imgsz
     old_img_b = 1
 
+    # Set HSV color range
+    hsv_lower1 = np.array([0, 0, 225])
+    hsv_upper1 = np.array([40, 255, 255])
+    hsv_lower2 = np.array([160, 0, 225])
+    hsv_upper2 = np.array([180, 255, 255])
+    
     t0 = time.time()
     num_obj = 1
     for path, img, im0s, vid_cap in dataset:
@@ -133,25 +139,70 @@ def detect(save_img=False):
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
                     
-                    # code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
-                    save_obj = True
-                    if save_obj:
-                        for k in range(len(det)):
-                            x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
-                            img_ = im0.astype(np.uint8)
-                            #IDEA: crop the siren light part
-                            crop_img=img_[y:y + int(h/3.5), x:x + w]                          
-                            
-                            #!!rescale image !!!
-                            filename = f'cropped{num_obj}.png'
-                            filepath = str(save_dir / filename)
-                            cv2.imwrite(filepath, crop_img)
-                            
-                    else:
-                        print("There is no detected object")
-                        continue
+                    '''
+                    Crop the 1/3.5 detected object
+                    And check if any region in the cropped object falls in the hsv color range
+                    '''
+                    for k in range(len(det)):
+                        x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+                        img_ = im0.astype(np.uint8)
+                        
+                        # crop the siren light part
+                        # IDEA: changing the ratio depends on the type of emergency vehicle??? #####################################
+                        crop_img=img_[y:y + h//11, x:x + w]
+#                         crop_img_rgb=img_[y:y + int(h/3.5), x:x + w]
+                        crop_img_rgb = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+                        crop_img_hsv = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
+                        
+                        # make a mask to detect siren light
+                        hsv_mask1 = cv2.inRange(crop_img_hsv, hsv_lower1, hsv_upper1)
+                        hsv_mask2 = cv2.inRange(crop_img_hsv, hsv_lower2, hsv_upper2)
+                        hsv_mask = hsv_mask1 + hsv_mask2
+                        
+                        # number of pixels falls in the hsv color range
+#                         num_pixels = cv2.countNonZero(hsv_mask)
+#                         print(f"Number of pixels falls in the hsv color range / obj{num_obj}: {num_pixels}")
+                        total_pixels = crop_img_hsv.shape[0]*crop_img_hsv.shape[1]
+#                         print(f"Number of pixels: {total_pixels}")
+                        pixels = cv2.countNonZero(hsv_mask)
+#                         print(f"Number of pixels falls into the range: {pixels}")
+                        percentage = pixels/total_pixels
+#                         print(f"Percentage: {percentage}")
+                        
+                        # emergency state if the percentage of the hsv histogram of the ROI falls in the siren light hsv range is bigger than 0.15
+                        if percentage > 0.15:
+                            cv2.putText(im0, "Emergency", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 5)
                     
-                    num_obj+=1
+#                         result = cv2.bitwise_and(crop_img_rgb, crop_img_rgb, mask=hsv_mask)
+#                         filename = f'mask{num_obj}.png'
+#                         filepath = str(save_dir / filename)
+#                         cv2.imwrite(filepath, hsv_mask)
+                        
+                        
+                    
+                    '''
+                    Crop and save the detected object
+                    code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
+                    '''
+#                     save_obj = True
+#                     if save_obj:
+#                         for k in range(len(det)):
+#                             x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+#                             img_ = im0.astype(np.uint8)
+#                             #IDEA: crop the siren light part
+# #                             crop_img=img_[y:y + int(h/3.5), x:x + w]
+#                             crop_img=img_[y:y + h//11, x:x + w]                        
+                            
+#                             #!!rescale image !!!
+#                             filename = f'cropped{num_obj}.png'
+#                             filepath = str(save_dir / filename)
+#                             cv2.imwrite(filepath, crop_img)
+                            
+#                     else:
+#                         print("There is no detected object")
+#                         continue
+                    
+#                     num_obj+=1
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
