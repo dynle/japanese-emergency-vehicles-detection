@@ -36,6 +36,7 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True #set True to speed up constant image size inference
+        # IDEA: set frame width, frame height, and fps in utils/datasets.py LoadSteams class
         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
     
     # Get Names and Colors
@@ -101,18 +102,14 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
                     
         cv2.imshow(str(p), im0)
         
-    print(f'Done. ({time.pref_counter() - t0:.3f})')
-            
-            
-
+    print(f'Done. ({time.perf_counter() - t0:.3f})')
 
 
 if __name__ == '__main__':
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     print(device)
     
     with torch.no_grad():
-        detect("0", "./train-results/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.5)
+        detect("0", "./train-results/yolov7tiny-freezing28/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.5)
     
