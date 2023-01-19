@@ -71,6 +71,7 @@ def detect(save_img=False):
     old_img_b = 1
 
     t0 = time.time()
+    num_obj = 1
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -121,7 +122,6 @@ def detect(save_img=False):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                num_obj = 1
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -133,7 +133,7 @@ def detect(save_img=False):
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
                     
-                    # line added (https://github.com/ultralytics/yolov5/issues/803 and https://github.com/ultralytics/yolov5/issues/2608)
+                    # code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
                     save_obj = True
                     if save_obj:
                         for k in range(len(det)):
@@ -146,11 +146,12 @@ def detect(save_img=False):
                             filename = f'cropped{num_obj}.png'
                             filepath = str(save_dir / filename)
                             cv2.imwrite(filepath, crop_img)
+                            
                     else:
                         print("There is no detected object")
                         continue
+                    
                     num_obj+=1
-
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
