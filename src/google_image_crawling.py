@@ -10,8 +10,11 @@ import os
 
 # keywords
 emergency_vehicle_keywords = ["救急車","警察車 パトカー","消防車"]
+non_emergency_vehicle_keywords = ["日本普通の車", "日本で売れている車", "バス", "トラック", "ワゴン車"]
+keywords = non_emergency_vehicle_keywords
+
 # number of images per class
-NUM_PIC = 3
+NUM_PIC = 100
 
 # Chrome 106 version driver
 driver = webdriver.Chrome('/Users/DoyoonLee/Dev/Projects/emergency-vehicle-detection/src/chromedriver')
@@ -19,7 +22,7 @@ wait = WebDriverWait(driver,5)
 driver.get("https://www.google.co.kr/imghp?hl=en&tab=ri&authuser=0&ogbl")
 driver.implicitly_wait(5)
 
-for keyword in emergency_vehicle_keywords:
+for keyword in keywords:
     elem = driver.find_element(By.NAME,"q")
     COUNT=0
 
@@ -76,8 +79,8 @@ for keyword in emergency_vehicle_keywords:
             print(f"{keyword[:3]}: {COUNT+1}/{len(images)}")
             COUNT+=1
 
-            # if COUNT == NUM_PIC:
-            #     break
+            if COUNT == NUM_PIC:
+                break
         except Exception as e:
             print("error: ",e)
             pass
