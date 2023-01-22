@@ -111,5 +111,8 @@ if __name__ == '__main__':
     print(device)
     
     with torch.no_grad():
-        detect("0", "./train-results/yolov7tiny-freezing28/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.5)
-    
+        # yolov7tiny-freezing28 IDEA: Use this lightweight model for this time because of limitations of test environment
+        detect("0", "./train-results/yolov7tiny-freezing28/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
+        
+        # yolo7-freezing50
+        # detect("0", "./train-results/yolov7-freezing50/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
