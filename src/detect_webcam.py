@@ -6,6 +6,7 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
+import numpy as np
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -13,6 +14,23 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+
+def draw_text(img, text,
+                font=cv2.FONT_HERSHEY_TRIPLEX,
+                pos=(50, 50),
+                font_scale=1,
+                font_thickness=2,
+                text_color=(0, 0, 255),
+                text_color_bg=(51, 195, 236)
+                ):
+
+    x, y = pos
+    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+    text_w, text_h = text_size
+    cv2.rectangle(img, pos, (x + text_w + 5, y + text_h + 5), text_color_bg, -1)
+    cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
+
+    return text_size
 
 
 def detect(source, weights, device, img_size, iou_thres, conf_thres):
@@ -41,17 +59,29 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
     
     # Get Names and Colors
     names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0,255) for _ in range(3)] for _ in names]
-    
+    # colors = [[random.randint(0,255) for _ in range(3)] for _ in names]
+    colors = [[random.randint(0,130) for _ in range(3)] for _ in names] #except red color
+
     # Run Inference
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))) #run once
-    
     old_img_w = old_img_h = img_size
     old_img_b = 1
-    
+
+    ####################################################################################################
+    # Set HSV color range / cut_height / thres for siren light detection
+    hsv_lower1 = np.array([0, 20, 225])
+    hsv_upper1 = np.array([30, 255, 255])
+    hsv_lower2 = np.array([160, 20, 225])
+    hsv_upper2 = np.array([180, 255, 255])
+    cut_height_fire_police = 11
+    cut_height_ambul = 5
+    hsv_thres_fire_police = 0.1
+    hsv_thres_ambul = 0.01
+    ####################################################################################################
+
     t0 = time.perf_counter()
-    
+    num_obj = 1
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float() #uint8 to fp16/32
@@ -67,14 +97,13 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
         
         # Inference
         t1 = time_synchronized()
-        with torch.no_grad():
+        with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
             pred = model(img)[0]
         t2 = time_synchronized()
         
         # Apply NMS
         pred = non_max_suppression(pred, conf_thres, iou_thres)
         t3 = time_synchronized()
-        
         
         # Process Detections
         for i, det in enumerate(pred): #detections per image
@@ -95,13 +124,89 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
                 
                 # Write Results
                 for *xyxy, conf, cls in reversed(det):
+                    obj_class = names[int(cls)]
+                    label = f'{obj_class} {conf:.2f}'
+                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+
+                    '''
+                    Crop the 1/10 detected object
+                    And check if any region in the cropped object falls in the hsv color range
+                    '''
+                    for k in range(len(det)):
+                        x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+                        img_ = im0.astype(np.uint8)
+                        
+                        # crop the siren light part at the top
+                        if obj_class == "Fire Engine" or obj_class == "Police Car":
+                            crop_img=img_[y:y + h//cut_height_fire_police, x:x + w]
+                        else:
+                            crop_img=img_[y:y + h//cut_height_ambul, x:x + w]
+
+                        crop_img_rgb = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+                        crop_img_hsv = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
+                        
+                        # make a mask to detect siren light
+                        hsv_mask1 = cv2.inRange(crop_img_hsv, hsv_lower1, hsv_upper1)
+                        hsv_mask2 = cv2.inRange(crop_img_hsv, hsv_lower2, hsv_upper2)
+                        hsv_mask = hsv_mask1 + hsv_mask2
+                        
+                        # number of pixels falls in the hsv color range
+#                         num_pixels = cv2.countNonZero(hsv_mask)
+#                         print(f"Number of pixels falls in the hsv color range / obj{num_obj}: {num_pixels}")
+                        total_pixels = crop_img_hsv.shape[0]*crop_img_hsv.shape[1]
+#                         print(f"Number of pixels: {total_pixels}")
+                        pixels = cv2.countNonZero(hsv_mask)
+#                         print(f"Number of pixels falls into the range: {pixels}")
+                        percentage = pixels/total_pixels
+#                         print(f"Percentage: {percentage}")
+                        
+                        # emergency state if the percentage of the hsv histogram of the ROI falls in the siren light hsv range is bigger than 0.1
+                        if (obj_class == "Fire Engine" or obj_class == "Police Car") and percentage > hsv_thres_fire_police:
+#                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
+                            draw_text(im0, "Move Over or Slow Down for Emergency Vehicles")
+                            
+                        if obj_class == "Ambulance" and percentage > hsv_thres_ambul:
+#                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
+                            draw_text(im0, "Move Over or Slow Down for Emergency Vehicles")
                     
-                    label = f'{names[int(cls)]} {conf:.2f}'
-                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        # uncomment these lines if you want to save the mask
+#                         result = cv2.bitwise_and(crop_img_rgb, crop_img_rgb, mask=hsv_mask)
+#                         filename = f'mask{num_obj}.png'
+#                         filepath = str(save_dir / filename)
+#                         cv2.imwrite(filepath, hsv_mask)
+
+
+                    '''
+                    Crop and save the detected object
+                    uncomment these lines if you want to save the cropped image
                     
-                    
+                    code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
+                    '''
+#                     save_obj = True
+#                     if save_obj:
+#                         for k in range(len(det)):
+#                             x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+#                             img_ = im0.astype(np.uint8)
+#                             #IDEA: crop the siren light part
+#                             if obj_class == "Fire Engine" or obj_class == "Police Car":
+#                                 crop_img=img_[y:y + h//cut_height_fire_police, x:x + w]
+#                             else:
+#                                 crop_img=img_[y:y + h//cut_height_ambul, x:x + w]                                 
+#
+#                             #!!rescale image !!!
+#                             filename = f'cropped{num_obj}.png'
+#                             filepath = str(save_dir / filename)
+#                             cv2.imwrite(filepath, crop_img)
+#
+#                     else:
+#                         print("There is no detected object")
+#                         continue
+#
+#                     num_obj+=1
+#
+#
         cv2.imshow(str(p), im0)
-        
+
     print(f'Done. ({time.perf_counter() - t0:.3f})')
 
 
@@ -112,7 +217,7 @@ if __name__ == '__main__':
     
     with torch.no_grad():
         # yolov7tiny-freezing28 IDEA: Use this lightweight model for this time because of limitations of test environment
-        detect("0", "./train-results/yolov7tiny-freezing28/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
+        detect("0", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
         
         # yolo7-freezing50
         # detect("0", "./train-results/yolov7-freezing50/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
