@@ -82,7 +82,9 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
 
     t0 = time.perf_counter()
     num_obj = 1
+    frame_count = 0
     for path, img, im0s, vid_cap in dataset:
+        frame_count += 1
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float() #uint8 to fp16/32
         img /= 255.0 #0 - 255 to 0.0 - 1.0
@@ -206,6 +208,11 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
 #
 #
         cv2.imshow(str(p), im0)
+
+    # calculate the average fps
+    avg_fps = frame_count / (time.time()-t0)
+    print("Printing Average FPS for inference + nms + postprocess + saving_results")
+    print(f"Average FPS: {avg_fps:.2f}")
 
     print(f'Done. ({time.perf_counter() - t0:.3f})')
 
