@@ -163,11 +163,11 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
                         # emergency state if the percentage of the hsv histogram of the ROI falls in the siren light hsv range is bigger than 0.1
                         if (obj_class == "Fire Engine" or obj_class == "Police Car") and percentage > hsv_thres_fire_police:
 #                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
-                            draw_text(im0, "Move Over or Slow Down for Emergency Vehicles")
+                            draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
                             
                         if obj_class == "Ambulance" and percentage > hsv_thres_ambul:
 #                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
-                            draw_text(im0, "Move Over or Slow Down for Emergency Vehicles")
+                            draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
                     
                         # uncomment these lines if you want to save the mask
 #                         result = cv2.bitwise_and(crop_img_rgb, crop_img_rgb, mask=hsv_mask)
@@ -218,6 +218,8 @@ if __name__ == '__main__':
     with torch.no_grad():
         # yolov7tiny-freezing28 IDEA: Use this lightweight model for this time because of limitations of test environment
         detect("0", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
+        # iphone camera
+        # detect("1", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
         
         # yolo7-freezing50
         # detect("0", "./train-results/yolov7-freezing50/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
