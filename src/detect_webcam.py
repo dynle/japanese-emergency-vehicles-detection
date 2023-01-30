@@ -74,9 +74,11 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
     hsv_upper1 = np.array([30, 255, 255])
     hsv_lower2 = np.array([160, 20, 225])
     hsv_upper2 = np.array([180, 255, 255])
-    cut_height_fire_police = 11
+    cut_height_fire = 11
+    cut_height_police = 8
     cut_height_ambul = 5
-    hsv_thres_fire_police = 0.1
+    hsv_thres_fire = 0.07
+    hsv_thres_police = 0.03
     hsv_thres_ambul = 0.01
     ####################################################################################################
 
@@ -134,85 +136,91 @@ def detect(source, weights, device, img_size, iou_thres, conf_thres):
                     Crop the 1/10 detected object
                     And check if any region in the cropped object falls in the hsv color range
                     '''
-                    for k in range(len(det)):
-                        x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
-                        img_ = im0.astype(np.uint8)
-                        
-                        # crop the siren light part at the top
-                        if obj_class == "Fire Engine" or obj_class == "Police Car":
-                            crop_img=img_[y:y + h//cut_height_fire_police, x:x + w]
-                        else:
-                            crop_img=img_[y:y + h//cut_height_ambul, x:x + w]
-
-                        crop_img_rgb = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
-                        crop_img_hsv = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
-                        
-                        # make a mask to detect siren light
-                        hsv_mask1 = cv2.inRange(crop_img_hsv, hsv_lower1, hsv_upper1)
-                        hsv_mask2 = cv2.inRange(crop_img_hsv, hsv_lower2, hsv_upper2)
-                        hsv_mask = hsv_mask1 + hsv_mask2
-                        
-                        # number of pixels falls in the hsv color range
-#                         num_pixels = cv2.countNonZero(hsv_mask)
-#                         print(f"Number of pixels falls in the hsv color range / obj{num_obj}: {num_pixels}")
-                        total_pixels = crop_img_hsv.shape[0]*crop_img_hsv.shape[1]
-#                         print(f"Number of pixels: {total_pixels}")
-                        pixels = cv2.countNonZero(hsv_mask)
-#                         print(f"Number of pixels falls into the range: {pixels}")
-                        percentage = pixels/total_pixels
-#                         print(f"Percentage: {percentage}")
-                        
-                        # emergency state if the percentage of the hsv histogram of the ROI falls in the siren light hsv range is bigger than 0.1
-                        if (obj_class == "Fire Engine" or obj_class == "Police Car") and percentage > hsv_thres_fire_police:
-#                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
-                            draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
+                    if obj_class != "Normal Car":
+                        for k in range(len(det)):
+                            x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+                            img_ = im0.astype(np.uint8)
                             
-                        if obj_class == "Ambulance" and percentage > hsv_thres_ambul:
-#                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
-                            draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
-                    
-                        # uncomment these lines if you want to save the mask
-#                         result = cv2.bitwise_and(crop_img_rgb, crop_img_rgb, mask=hsv_mask)
-#                         filename = f'mask{num_obj}.png'
-#                         filepath = str(save_dir / filename)
-#                         cv2.imwrite(filepath, hsv_mask)
+                            # crop the siren light part at the top
+                            if obj_class == "Fire Engine" or obj_class == "Police Car":
+                                crop_img=img_[y:y + h//cut_height_fire, x:x + w]
+                            elif obj_class == "Police Car":
+                                crop_img=img_[y:y + h//cut_height_police, x:x + w]
+                            else:
+                                crop_img=img_[y:y + h//cut_height_ambul, x:x + w]
+
+                            crop_img_rgb = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+                            crop_img_hsv = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
+                            
+                            # make a mask to detect siren light
+                            hsv_mask1 = cv2.inRange(crop_img_hsv, hsv_lower1, hsv_upper1)
+                            hsv_mask2 = cv2.inRange(crop_img_hsv, hsv_lower2, hsv_upper2)
+                            hsv_mask = hsv_mask1 + hsv_mask2
+                            
+                            # number of pixels falls in the hsv color range
+    #                         num_pixels = cv2.countNonZero(hsv_mask)
+    #                         print(f"Number of pixels falls in the hsv color range / obj{num_obj}: {num_pixels}")
+                            total_pixels = crop_img_hsv.shape[0]*crop_img_hsv.shape[1]
+    #                         print(f"Number of pixels: {total_pixels}")
+                            pixels = cv2.countNonZero(hsv_mask)
+    #                         print(f"Number of pixels falls into the range: {pixels}")
+                            percentage = pixels/total_pixels
+    #                         print(f"Percentage: {percentage}")
+                            
+                            # emergency state if the percentage of the hsv histogram of the ROI falls in the siren light hsv range is bigger than 0.1
+                            if obj_class == "Fire Engine" and percentage > hsv_thres_fire:
+    #                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
+                                draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
+                            if obj_class == "Police Car" and percentage > hsv_thres_police:
+                                draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
+                            if obj_class == "Ambulance" and percentage > hsv_thres_ambul:
+    #                             cv2.putText(im0, "Move Over or Slow Down for Emergency Vehicles", org = (50,50),  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = (0, 0, 255), thickness = 3)
+                                draw_text(im0, "Slow Down and Move Over for Emergency Vehicles")
+                        
+                            # uncomment these lines if you want to save the mask
+    #                         result = cv2.bitwise_and(crop_img_rgb, crop_img_rgb, mask=hsv_mask)
+    #                         filename = f'mask{num_obj}.png'
+    #                         filepath = str(save_dir / filename)
+    #                         cv2.imwrite(filepath, hsv_mask)
 
 
-                    '''
-                    Crop and save the detected object
-                    uncomment these lines if you want to save the cropped image
-                    
-                    code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
-                    '''
-#                     save_obj = True
-#                     if save_obj:
-#                         for k in range(len(det)):
-#                             x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
-#                             img_ = im0.astype(np.uint8)
-#                             #IDEA: crop the siren light part
-#                             if obj_class == "Fire Engine" or obj_class == "Police Car":
-#                                 crop_img=img_[y:y + h//cut_height_fire_police, x:x + w]
-#                             else:
-#                                 crop_img=img_[y:y + h//cut_height_ambul, x:x + w]                                 
-#
-#                             #!!rescale image !!!
-#                             filename = f'cropped{num_obj}.png'
-#                             filepath = str(save_dir / filename)
-#                             cv2.imwrite(filepath, crop_img)
-#
-#                     else:
-#                         print("There is no detected object")
-#                         continue
-#
-#                     num_obj+=1
+                        '''
+                        Crop and save the detected object
+                        uncomment these lines if you want to save the cropped image
+                        
+                        code from (https://github.com/ultralytics/yolov5/issues/803 and 2608)
+                        '''
+                        # save_obj = True
+                        # if save_obj:
+                        #     for k in range(len(det)):
+                        #         x,y,w,h=int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1])                   
+                        #         img_ = im0.astype(np.uint8)
+                        #         #IDEA: crop the siren light part
+                        #         if obj_class == "Fire Engine":
+                        #             crop_img=img_[y:y + h//cut_height_fire, x:x + w]
+                        #         elif obj_class == "Police Car":
+                        #             crop_img=img_[y:y + h//cut_height_police, x:x + w]
+                        #         else:
+                        #             crop_img=img_[y:y + h//cut_height_ambul, x:x + w]                                 
+
+                        #         #!!rescale image !!!
+                        #         filename = f'cropped{num_obj}.png'
+                        #         filepath = str(save_dir / filename)
+                        #         cv2.imwrite(filepath, crop_img)
+
+                        # else:
+                        #     print("There is no detected object")
+                        #     continue
+
+                        # num_obj+=1
 #
 #
         cv2.imshow(str(p), im0)
 
     # calculate the average fps
     avg_fps = frame_count / (time.time()-t0)
-    print("Printing Average FPS for inference + nms + postprocess + saving_results")
-    print(f"Average FPS: {avg_fps:.2f}")
+    # print("Printing Average FPS for inference + nms + postprocess + saving_results")
+    # print(f"Average FPS: {avg_fps:.2f}")
 
     print(f'Done. ({time.perf_counter() - t0:.3f})')
 
@@ -224,9 +232,9 @@ if __name__ == '__main__':
     
     with torch.no_grad():
         # yolov7tiny-freezing28 IDEA: Use this lightweight model for this time because of limitations of test environment
-        detect("0", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
+        # detect("0", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
         # iphone camera
-        # detect("1", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
+        detect("1", "./train-results/yolov7tiny-freezing28-normalcar/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
         
         # yolo7-freezing50
         # detect("0", "./train-results/yolov7-freezing50/weights/best.pt", device, img_size=640, iou_thres=0.45, conf_thres=0.8)
